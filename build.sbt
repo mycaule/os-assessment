@@ -18,6 +18,8 @@ lazy val root = (project in file(".")).
       scalaTest % Test,
       "ch.qos.logback" % "logback-classic" % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
-      "org.apache.spark" %% "spark-core" % "2.3.0"
-    )
+      "org.apache.spark" %% "spark-core" % "2.3.0",
+      "org.scalanlp" %% "breeze" % "0.13.2"
+    ),
+    resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
   )

@@ -4,6 +4,8 @@ package mycaule
 //
 // import org.apache.spark.{ SparkContext, SparkConf }
 // import org.apache.spark.rdd.RDD
+//
+// import breeze.optimize.linear._
 
 object Parcel extends App {
 
@@ -41,17 +43,33 @@ object Parcel extends App {
     def writeOut(parcels: List[List[Int]]): String = parcels.map(writeIn).mkString("/")
   }
 
-  def partition(items: List[Int], capacity: Int): List[(List[Int], Int)] = {
-    items.foldLeft(Array((List[Int](), 0)))((acc, item) => {
-      val l = acc.last
-      val sum = l._2 + item
-      if (sum <= capacity) {
-        acc(acc.length - 1) = (l._1 :+ item, sum)
-        acc
-      } else {
-        acc :+ (List(item), item)
-      }
-    }).toList
+  def partition(items: List[Int], capacity: Int, sorted: Boolean = false): List[(List[Int], Int)] = {
+    (if (sorted) items.sortWith(_ > _) else items)
+      .foldLeft(Array((List[Int](), 0)))((acc, item) => {
+        val l = acc.last
+        val sum = l._2 + item
+        if (sum <= capacity) {
+          acc(acc.length - 1) = (l._1 :+ item, sum)
+          acc
+        } else {
+          acc :+ (List(item), item)
+        }
+      }).toList
+  }
+
+  def partitionBest(items: List[Int], capacity: Int, sorted: Boolean = false): List[(List[Int], Int)] = {
+    (if (sorted) items.sortWith(_ > _) else items)
+      .foldLeft(Array((List[Int](), 0)))((acc, item) => {
+        val (remain, i) = acc.map(_._2).zipWithIndex.min
+
+        var sum = remain + item
+        if (sum <= capacity) {
+          acc(i) = (acc(i)._1 :+ item, sum)
+          acc
+        } else {
+          acc :+ (List(item), item)
+        }
+      }).toList
   }
 
   def montecarlo(items: List[Int], capacity: Int, draws: Int): List[(List[Int], Int)] = {
@@ -77,7 +95,11 @@ object Parcel extends App {
 
     if (dataValid) {
       println(s"${items.size} articles à emballer")
-      val algorithms = List((partition(items, MAX_CAPACITY), "temps réel"), (montecarlo(items, MAX_CAPACITY, MAX_ITERATIONS), "montecarlo"))
+      val algorithms = List(
+        (partition(items, MAX_CAPACITY), "temps réel"),
+        (partitionBest(items, MAX_CAPACITY, true), "meilleur choix"),
+        (montecarlo(items, MAX_CAPACITY, MAX_ITERATIONS), "montecarlo")
+      )
 
       println("Chaîne d'articles emballés :")
       algorithms map {
@@ -87,7 +109,7 @@ object Parcel extends App {
           val resultsValid = Validation.out(results, items)
           if (resultsValid) {
             val compacity = contents.sum.toDouble / contents.size / MAX_CAPACITY
-            println(f"$name - ${Serialization.writeOut(results)} (${parcels.size} cartons, K ~ $compacity%1.2f)")
+            println(f"$name - ${Serialization.writeOut(results)} (${parcels.size} cartons, K=$compacity%1.2f)")
           } else {
             println("[warn] Certains cartons sont incorrects !")
           }
